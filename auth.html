@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign in — Smash_It</title>
+<meta name="description" content="Sign in or create your Smash_It account.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --ink:#111827; --muted:#5B6472; --faint:#8A93A3;
+  --paper:#F3F5F7; --card:#FFFFFF; --line:#E3E7EC; --line-soft:#EDF0F3;
+  --navy:#101623; --navy-2:#1A2334; --navy-3:#242F45;
+  --teal:#0E7C6B; --teal-deep:#0B6355; --teal-soft:#E5F3F0; --teal-line:#BEE0D8;
+  --live:#E5484D; --live-soft:#FDECEC; --live-line:#F6C6C8;
+  --amber:#B45309; --amber-soft:#FCF3E4; --amber-line:#F0DBB6;
+  --r-card:16px; --r-ctl:9px;
+  --shadow:0 1px 2px rgba(16,22,35,.05), 0 20px 50px rgba(16,22,35,.28);
+}
+*{box-sizing:border-box; margin:0; padding:0}
+html,body{height:100%}
+body{
+  font-family:'Inter',system-ui,sans-serif; font-size:14px; color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+  background:
+    radial-gradient(600px 400px at 18% 12%, rgba(14,124,107,.35), transparent 60%),
+    radial-gradient(700px 500px at 85% 90%, rgba(14,124,107,.18), transparent 60%),
+    var(--navy);
+  min-height:100%;
+  display:flex; align-items:center; justify-content:center;
+  padding:28px 16px;
+}
+button{font-family:inherit; cursor:pointer; border:none; background:none; color:inherit}
+button:focus-visible, input:focus-visible{outline:2px solid var(--teal); outline-offset:2px; border-radius:4px}
+
+.card{
+  width:min(420px, 100%); background:var(--card); border-radius:var(--r-card);
+  box-shadow:var(--shadow); padding:30px 28px 26px; animation:cardin .35s ease;
+}
+@keyframes cardin{from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:none}}
+
+.brand{text-align:center; margin-bottom:22px}
+.wordmark{font-family:'Sora',sans-serif; font-weight:700; font-size:21px; color:var(--navy)}
+.wordmark .u{color:var(--teal)}
+.tagline{font-family:'IBM Plex Mono',monospace; font-size:10.5px; letter-spacing:.16em; color:var(--faint); margin-top:3px}
+
+.tabs{display:flex; background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:3px; margin-bottom:20px}
+.tabs button{flex:1; padding:8px 10px; border-radius:7px; font-size:13px; font-weight:600; color:var(--muted); transition:background .15s,color .15s}
+.tabs button.on{background:var(--navy); color:#fff}
+
+.banner{border-radius:10px; padding:10px 12px; font-size:12.5px; line-height:1.5; margin-bottom:16px; display:none}
+.banner.show{display:block}
+.banner.err{background:var(--live-soft); border:1px solid var(--live-line); color:#9A2E32}
+.banner.warn{background:var(--amber-soft); border:1px solid var(--amber-line); color:var(--amber)}
+.banner a, .banner button.inline{color:inherit; font-weight:700; text-decoration:underline; background:none; border:none; padding:0; font-size:inherit; cursor:pointer}
+
+.authform{display:flex; flex-direction:column; gap:14px}
+label{display:block; font-size:12.5px; font-weight:600; color:var(--muted)}
+label input[type=text], label input[type=email], label input[type=password]{
+  width:100%; margin-top:6px; border:1px solid var(--line); border-radius:var(--r-ctl); padding:10px 12px;
+  font-family:inherit; font-size:13.5px; color:var(--ink); background:#FBFCFD; transition:border-color .15s, background .15s;
+}
+label input:focus{border-color:var(--teal); background:#fff; outline:none; box-shadow:0 0 0 3px rgba(14,124,107,.12)}
+label input.invalid{border-color:var(--live-line); background:var(--live-soft)}
+
+.pwrow{position:relative; display:flex; align-items:center}
+.pwrow input{flex:1}
+.showbtn{position:absolute; right:10px; font-size:11.5px; font-weight:700; color:var(--teal); letter-spacing:.02em; padding:4px}
+.showbtn:hover{color:var(--teal-deep)}
+
+.hint{font-size:11px; color:var(--faint); margin-top:5px; line-height:1.5; min-height:0}
+.hint.bad{color:var(--live)}
+.hint.good{color:var(--teal-deep)}
+
+.forgot{text-align:right; margin-top:-6px}
+.forgot button{font-size:12px; font-weight:600; color:var(--teal)}
+.forgot button:hover{text-decoration:underline}
+
+.primarybtn{
+  margin-top:4px; background:var(--teal); color:#fff; font-weight:700; font-size:13.5px;
+  border-radius:var(--r-ctl); padding:11px 16px; display:flex; align-items:center; justify-content:center; gap:8px;
+  transition:background .15s, transform .06s;
+}
+.primarybtn:hover{background:var(--teal-deep)}
+.primarybtn:active{transform:scale(.985)}
+.primarybtn:disabled{background:#BFC8D2; cursor:not-allowed}
+.spin{width:14px; height:14px; border:2px solid rgba(255,255,255,.4); border-top-color:#fff; border-radius:50%; animation:spin .7s linear infinite; display:none}
+.spin.on{display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.switchline{text-align:center; font-size:12.5px; color:var(--muted); margin-top:18px}
+.switchline button{color:var(--teal); font-weight:700}
+.switchline button:hover{text-decoration:underline}
+
+.checkemail{text-align:center; padding:6px 2px 4px}
+.ce-icon{
+  width:52px; height:52px; border-radius:50%; background:var(--teal-soft); border:1px solid var(--teal-line);
+  display:flex; align-items:center; justify-content:center; font-size:22px; margin:0 auto 14px;
+}
+.checkemail h3{font-family:'Sora',sans-serif; font-size:16.5px; margin-bottom:8px; color:var(--navy)}
+.checkemail p{font-size:13px; color:var(--muted); line-height:1.6; margin-bottom:18px}
+.checkemail p b{color:var(--ink)}
+.ghostbtn{
+  width:100%; border:1px solid var(--line); border-radius:var(--r-ctl); padding:10px 14px; font-weight:700; font-size:13px;
+  color:var(--ink); background:#fff; transition:border-color .15s;
+}
+.ghostbtn:hover{border-color:var(--teal); color:var(--teal)}
+.ghostbtn:disabled{color:var(--faint); cursor:not-allowed}
+.linkbtn{display:block; margin:14px auto 0; font-size:12.5px; font-weight:600; color:var(--muted)}
+.linkbtn:hover{color:var(--ink)}
+
+.shake{animation:shakeAnim .3s ease 2}
+@keyframes shakeAnim{0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)}}
+
+.toasts{position:fixed; bottom:18px; left:50%; transform:translateX(-50%); z-index:60; display:flex; flex-direction:column; gap:8px; align-items:center}
+.toast{background:var(--navy); color:#fff; font-size:13px; border-radius:9px; padding:10px 16px; box-shadow:0 8px 24px rgba(16,22,35,.35); animation:toastin .25s ease; max-width:min(480px,90vw); text-align:center}
+.toast.warn{background:var(--amber)}
+.toast.err{background:var(--live)}
+@keyframes toastin{from{opacity:0; transform:translateY(8px)} to{opacity:1; transform:none}}
+
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none !important; transition:none !important}}
+</style>
+</head>
+<body>
+
+<div class="card" id="card">
+  <div class="brand">
+    <div class="wordmark">SMASH<span class="u">_</span>IT</div>
+    <div class="tagline">AI MEETING ASSISTANT</div>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <button data-tab="signin" class="on" type="button">Sign in</button>
+    <button data-tab="signup" type="button">Create account</button>
+  </div>
+
+  <div class="banner err" id="errBanner"></div>
+
+  <!-- ============ SIGN IN ============ -->
+  <form class="authform" id="signinForm">
+    <label for="siEmail">Email
+      <input type="email" id="siEmail" autocomplete="email" placeholder="you@example.com">
+    </label>
+    <label for="siPassword">Password
+      <div class="pwrow">
+        <input type="password" id="siPassword" autocomplete="current-password" placeholder="••••••••">
+        <button type="button" class="showbtn" data-target="siPassword">Show</button>
+      </div>
+    </label>
+    <div class="forgot"><button type="button" id="forgotBtn">Forgot password?</button></div>
+    <button type="submit" class="primarybtn" id="siSubmit"><span class="spin" id="siSpin"></span><span>Sign in</span></button>
+  </form>
+
+  <!-- ============ SIGN UP ============ -->
+  <form class="authform" id="signupForm" style="display:none">
+    <label for="suName">Full name
+      <input type="text" id="suName" autocomplete="name" placeholder="Your name">
+    </label>
+    <label for="suEmail">Email
+      <input type="email" id="suEmail" autocomplete="email" placeholder="you@example.com">
+    </label>
+    <label for="suPassword">Password
+      <div class="pwrow">
+        <input type="password" id="suPassword" autocomplete="new-password" placeholder="At least 8 characters">
+        <button type="button" class="showbtn" data-target="suPassword">Show</button>
+      </div>
+      <div class="hint" id="pwHint"></div>
+    </label>
+    <label for="suConfirm">Confirm password
+      <input type="password" id="suConfirm" autocomplete="new-password" placeholder="Re-enter your password">
+    </label>
+    <button type="submit" class="primarybtn" id="suSubmit"><span class="spin" id="suSpin"></span><span>Create account</span></button>
+  </form>
+
+  <!-- ============ CHECK EMAIL ============ -->
+  <div class="checkemail" id="checkEmail" style="display:none">
+    <div class="ce-icon">✉️</div>
+    <h3>Check your inbox</h3>
+    <p>We sent a confirmation link to <b id="ceEmail"></b>. Click it to activate your account, then come back and sign in.</p>
+    <button type="button" class="ghostbtn" id="resendBtn">Resend email</button>
+    <button type="button" class="linkbtn" id="backToSignin">← Back to sign in</button>
+  </div>
+
+  <div class="switchline" id="switchLine">
+    Don't have an account? <button type="button" id="switchToSignup">Create one</button>
+  </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<script>
+'use strict';
+
+/*__CORE_START__*/
+// ================================================================
+// AuthCore — pure logic (no DOM). Validation + friendly error text.
+// ================================================================
+const AuthCore = {
+  EMAIL_RE: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+
+  isValidEmail(email) {
+    return AuthCore.EMAIL_RE.test(String(email || '').trim());
+  },
+
+  // Returns an array of unmet requirements (empty = password is fine).
+  passwordIssues(pw) {
+    const p = String(pw || '');
+    const issues = [];
+    if (p.length < 8) issues.push('at least 8 characters');
+    if (!/[a-zA-Z]/.test(p)) issues.push('a letter');
+    if (!/[0-9]/.test(p)) issues.push('a number');
+    return issues;
+  },
+
+  // Translates raw Supabase/GoTrue error text into something a person can act on.
+  mapAuthError(raw) {
+    const msg = String(raw || '').toLowerCase();
+    if (!msg) return 'Something went wrong. Please try again.';
+    if (msg.indexOf('invalid login credentials') !== -1) return 'Incorrect email or password.';
+    if (msg.indexOf('email not confirmed') !== -1) return 'Please confirm your email before signing in — check your inbox (and spam folder).';
+    if (msg.indexOf('already registered') !== -1 || msg.indexOf('already exists') !== -1) return 'An account with this email already exists — try signing in instead.';
+    if (msg.indexOf('rate limit') !== -1 || msg.indexOf('too many requests') !== -1 || msg.indexOf('429') !== -1) return 'Too many attempts. Please wait a few minutes and try again.';
+    if (msg.indexOf('password') !== -1 && msg.indexOf('at least') !== -1) return 'Password is too short — use at least 8 characters.';
+    if (msg.indexOf('failed to fetch') !== -1 || msg.indexOf('network') !== -1) return 'Network error — check your internet connection and try again.';
+    if (msg.indexOf('invalid email') !== -1) return 'That email address looks invalid.';
+    if (msg.indexOf('user not found') !== -1) return 'No account found with that email.';
+    return raw || 'Something went wrong. Please try again.';
+  }
+};
+/*__CORE_END__*/
+
+// ================================================================
+// Supabase client
+// ================================================================
+// Cap — paste your two Supabase values below (Project Settings → Data API
+// for the URL, Project Settings → API Keys for the publishable/anon key).
+// These are safe to expose in frontend code; they can only do what
+// Supabase's row-level security rules allow.
+const SUPABASE_URL = 'https://jrgdoigwbflkrgirdkbf.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_sAOGyJRJd3vRJakZENqstg_icRjzyPH';
+
+let supabaseClient = null;
+let supabaseLoadError = false;
+try {
+  if (window.supabase && typeof window.supabase.createClient === 'function') {
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  } else {
+    supabaseLoadError = true;
+  }
+} catch (e) {
+  supabaseLoadError = true;
+}
+
+// ================================================================
+// DOM refs
+// ================================================================
+const $ = function (id) { return document.getElementById(id); };
+const els = {
+  card: $('card'), tabs: $('tabs'),
+  errBanner: $('errBanner'),
+  signinForm: $('signinForm'), siEmail: $('siEmail'), siPassword: $('siPassword'), siSubmit: $('siSubmit'), siSpin: $('siSpin'),
+  signupForm: $('signupForm'), suName: $('suName'), suEmail: $('suEmail'), suPassword: $('suPassword'), suConfirm: $('suConfirm'), suSubmit: $('suSubmit'), suSpin: $('suSpin'), pwHint: $('pwHint'),
+  checkEmail: $('checkEmail'), ceEmail: $('ceEmail'), resendBtn: $('resendBtn'), backToSignin: $('backToSignin'),
+  forgotBtn: $('forgotBtn'), switchLine: $('switchLine'), switchToSignup: $('switchToSignup'),
+  toasts: $('toasts')
+};
+
+function toast(msg, kind) {
+  const t = document.createElement('div');
+  t.className = 'toast' + (kind ? ' ' + kind : '');
+  t.textContent = msg;
+  els.toasts.appendChild(t);
+  setTimeout(function () { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; }, 3400);
+  setTimeout(function () { t.remove(); }, 3800);
+}
+
+if (supabaseLoadError) {
+  toast('Could not load the sign-in service. Check your internet connection and reload the page.', 'err');
+}
+
+function showBanner(msg) {
+  els.errBanner.textContent = msg;
+  els.errBanner.classList.add('show');
+}
+function hideBanner() {
+  els.errBanner.classList.remove('show');
+  els.errBanner.textContent = '';
+}
+function shakeCard() {
+  els.card.classList.remove('shake'); void els.card.offsetWidth; els.card.classList.add('shake');
+}
+
+// ================================================================
+// Tabs
+// ================================================================
+let activeTab = 'signin';
+function setTab(tab) {
+  activeTab = tab;
+  hideBanner();
+  els.tabs.querySelectorAll('button').forEach(function (b) { b.classList.toggle('on', b.dataset.tab === tab); });
+  els.signinForm.style.display = tab === 'signin' ? 'flex' : 'none';
+  els.signupForm.style.display = tab === 'signup' ? 'flex' : 'none';
+  els.checkEmail.style.display = 'none';
+  els.switchLine.style.display = 'block';
+  els.switchLine.innerHTML = tab === 'signin'
+    ? "Don't have an account? <button type=\"button\" id=\"switchToSignup\">Create one</button>"
+    : "Already have an account? <button type=\"button\" id=\"switchToSignin\">Sign in</button>";
+  const swBtn = tab === 'signin' ? $('switchToSignup') : $('switchToSignin');
+  swBtn.addEventListener('click', function () { setTab(tab === 'signin' ? 'signup' : 'signin'); });
+}
+els.tabs.addEventListener('click', function (e) {
+  const btn = e.target.closest('button[data-tab]');
+  if (btn) setTab(btn.dataset.tab);
+});
+$('switchToSignup').addEventListener('click', function () { setTab('signup'); });
+
+// Show/hide password
+document.querySelectorAll('.showbtn').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    const input = $(btn.dataset.target);
+    const show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    btn.textContent = show ? 'Hide' : 'Show';
+  });
+});
+
+// Live password hint on sign-up
+els.suPassword.addEventListener('input', function () {
+  const issues = AuthCore.passwordIssues(els.suPassword.value);
+  if (!els.suPassword.value) { els.pwHint.textContent = ''; els.pwHint.className = 'hint'; return; }
+  if (issues.length) {
+    els.pwHint.textContent = 'Needs: ' + issues.join(', ');
+    els.pwHint.className = 'hint bad';
+  } else {
+    els.pwHint.textContent = 'Looks good';
+    els.pwHint.className = 'hint good';
+  }
+});
+
+// ================================================================
+// Sign in
+// ================================================================
+els.signinForm.addEventListener('submit', function (e) {
+  e.preventDefault();
+  hideBanner();
+  els.siEmail.classList.remove('invalid'); els.siPassword.classList.remove('invalid');
+
+  const email = els.siEmail.value.trim();
+  const password = els.siPassword.value;
+
+  if (!AuthCore.isValidEmail(email)) {
+    els.siEmail.classList.add('invalid'); showBanner('Enter a valid email address.'); shakeCard(); return;
+  }
+  if (!password) {
+    els.siPassword.classList.add('invalid'); showBanner('Enter your password.'); shakeCard(); return;
+  }
+  if (!supabaseClient) { showBanner('Sign-in service is unavailable right now. Reload the page and try again.'); return; }
+
+  setLoading(els.siSubmit, els.siSpin, true);
+  supabaseClient.auth.signInWithPassword({ email: email, password: password })
+    .then(function (res) {
+      setLoading(els.siSubmit, els.siSpin, false);
+      if (res.error) {
+        const friendly = AuthCore.mapAuthError(res.error.message);
+        showBanner(friendly);
+        if (/confirm/i.test(res.error.message || '')) {
+          const btn = document.createElement('button');
+          btn.type = 'button'; btn.className = 'inline'; btn.textContent = ' Resend confirmation email';
+          btn.addEventListener('click', function () { resendConfirmation(email); });
+          els.errBanner.appendChild(btn);
+        }
+        shakeCard();
+        return;
+      }
+      toast('Signed in — redirecting…');
+      window.location.href = 'index.html';
+    })
+    .catch(function (err) {
+      setLoading(els.siSubmit, els.siSpin, false);
+      showBanner(AuthCore.mapAuthError(err && err.message));
+    });
+});
+
+// ================================================================
+// Sign up
+// ================================================================
+els.signupForm.addEventListener('submit', function (e) {
+  e.preventDefault();
+  hideBanner();
+  [els.suName, els.suEmail, els.suPassword, els.suConfirm].forEach(function (i) { i.classList.remove('invalid'); });
+
+  const name = els.suName.value.trim();
+  const email = els.suEmail.value.trim();
+  const password = els.suPassword.value;
+  const confirm = els.suConfirm.value;
+
+  if (!name) { els.suName.classList.add('invalid'); showBanner('Enter your full name.'); shakeCard(); return; }
+  if (!AuthCore.isValidEmail(email)) { els.suEmail.classList.add('invalid'); showBanner('Enter a valid email address.'); shakeCard(); return; }
+  const issues = AuthCore.passwordIssues(password);
+  if (issues.length) { els.suPassword.classList.add('invalid'); showBanner('Password needs: ' + issues.join(', ') + '.'); shakeCard(); return; }
+  if (password !== confirm) { els.suConfirm.classList.add('invalid'); showBanner('Passwords do not match.'); shakeCard(); return; }
+  if (!supabaseClient) { showBanner('Sign-up service is unavailable right now. Reload the page and try again.'); return; }
+
+  setLoading(els.suSubmit, els.suSpin, true);
+  supabaseClient.auth.signUp({
+    email: email,
+    password: password,
+    options: { data: { full_name: name } }
+  })
+  .then(function (res) {
+    setLoading(els.suSubmit, els.suSpin, false);
+    if (res.error) {
+      showBanner(AuthCore.mapAuthError(res.error.message));
+      shakeCard();
+      return;
+    }
+    showCheckEmail(email);
+  })
+  .catch(function (err) {
+    setLoading(els.suSubmit, els.suSpin, false);
+    showBanner(AuthCore.mapAuthError(err && err.message));
+  });
+});
+
+function showCheckEmail(email) {
+  els.signinForm.style.display = 'none';
+  els.signupForm.style.display = 'none';
+  els.switchLine.style.display = 'none';
+  els.checkEmail.style.display = 'block';
+  els.ceEmail.textContent = email;
+}
+els.backToSignin.addEventListener('click', function () { setTab('signin'); });
+
+// Resend confirmation, with a cooldown so we don't hammer Supabase's free-tier email limit.
+const RESEND_COOLDOWN_MS = 45000;
+let resendReadyAt = 0;
+function resendConfirmation(email) {
+  if (!supabaseClient) { toast('Sign-in service unavailable.', 'err'); return; }
+  if (Date.now() < resendReadyAt) { toast('Please wait before requesting another email.', 'warn'); return; }
+  supabaseClient.auth.resend({ type: 'signup', email: email })
+    .then(function (res) {
+      if (res.error) { toast(AuthCore.mapAuthError(res.error.message), 'err'); return; }
+      toast('Confirmation email resent.');
+      startResendCooldown();
+    })
+    .catch(function () { toast('Network error — try again.', 'err'); });
+}
+function startResendCooldown() {
+  resendReadyAt = Date.now() + RESEND_COOLDOWN_MS;
+  els.resendBtn.disabled = true;
+  const label = els.resendBtn;
+  const tick = function () {
+    const left = Math.max(0, Math.ceil((resendReadyAt - Date.now()) / 1000));
+    if (left <= 0) { label.textContent = 'Resend email'; label.disabled = false; return; }
+    label.textContent = 'Resend email (' + left + 's)';
+    setTimeout(tick, 1000);
+  };
+  tick();
+}
+els.resendBtn.addEventListener('click', function () { resendConfirmation(els.ceEmail.textContent); });
+
+// ================================================================
+// Forgot password — minimal placeholder (full flow is a later step)
+// ================================================================
+els.forgotBtn.addEventListener('click', function () {
+  toast('Password reset is coming soon — for now, contact support to reset your password.', 'warn');
+});
+
+// ================================================================
+// Loading state helper
+// ================================================================
+function setLoading(btn, spin, on) {
+  btn.disabled = on;
+  spin.classList.toggle('on', on);
+}
+</script>
+</body>
+</html>
