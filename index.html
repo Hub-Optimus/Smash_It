@@ -10,6 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
   --ink:#111827; --muted:#5B6472; --faint:#8A93A3;
@@ -272,6 +273,32 @@ body.listening .rail{background:linear-gradient(180deg, var(--live), #F79EA1, va
 .panel-body::-webkit-scrollbar, .t-scroll::-webkit-scrollbar, .ai-scroll::-webkit-scrollbar{width:8px}
 .panel-body::-webkit-scrollbar-thumb, .t-scroll::-webkit-scrollbar-thumb, .ai-scroll::-webkit-scrollbar-thumb{background:#CBD2DC; border-radius:99px}
 
+/* ============ ACCOUNT CHIP + SESSION GATE (additive) ============ */
+.userchip{position:relative; margin-left:4px}
+.avatar{
+  width:34px; height:34px; border-radius:50%; background:var(--teal); color:#fff;
+  font-weight:700; font-size:13px; display:flex; align-items:center; justify-content:center;
+  border:2px solid var(--navy-3); transition:border-color .15s; flex-shrink:0;
+}
+.avatar:hover{border-color:var(--teal)}
+.usermenu{
+  position:absolute; top:calc(100% + 10px); right:0; width:230px; background:#fff;
+  border-radius:12px; box-shadow:0 10px 30px rgba(16,22,35,.28); padding:12px; display:none; z-index:80;
+}
+.usermenu.open{display:block; animation:slidein .15s ease}
+.ue{padding:2px 4px 10px; border-bottom:1px solid var(--line-soft); margin-bottom:8px}
+.ue .uname{font-size:13px; font-weight:700; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.ue .uemail{font-size:11px; color:var(--faint); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.signoutbtn{width:100%; text-align:left; padding:8px 10px; border-radius:8px; font-size:13px; font-weight:600; color:var(--live)}
+.signoutbtn:hover{background:var(--live-soft)}
+.authgate{
+  position:fixed; inset:0; background:var(--paper); z-index:200;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px;
+}
+.authgate p{font-size:13px; color:var(--muted)}
+
+@media (max-width:760px){ .usermenu{right:-8px} }
+
 /* ============ RESPONSIVE ============ */
 @media (max-width:1180px){ main{grid-template-columns:250px minmax(0,1.3fr) minmax(0,1.1fr)} }
 @media (max-width:1000px){
@@ -295,6 +322,11 @@ body.listening .rail{background:linear-gradient(180deg, var(--live), #F79EA1, va
 </head>
 <body>
 
+<div class="authgate" id="authGate">
+  <div class="floader" style="width:28px;height:28px;border-width:3px"></div>
+  <p>Checking your session…</p>
+</div>
+
 <!-- ============ TOP BAR ============ -->
 <header class="topbar">
   <div>
@@ -311,6 +343,16 @@ body.listening .rail{background:linear-gradient(180deg, var(--live), #F79EA1, va
     <span class="statusdot" id="statusDot"></span>
     <span class="lbl">AI calls</span>
     <b id="callCount">0</b>
+  </div>
+  <div class="userchip" id="userChip" style="display:none">
+    <button class="avatar" id="avatarBtn" type="button" title="Account"><span id="avatarInitial"></span></button>
+    <div class="usermenu" id="userMenu">
+      <div class="ue">
+        <div class="uname" id="menuName"></div>
+        <div class="uemail mono" id="menuEmail"></div>
+      </div>
+      <button class="signoutbtn" id="signOutBtn" type="button">Sign out</button>
+    </div>
   </div>
 </header>
 
@@ -1225,6 +1267,84 @@ function renderError(card, message, question, origin) {
   });
   foot.appendChild(retry);
   card.appendChild(foot);
+}
+</script>
+
+<script>
+'use strict';
+// ================================================================
+// Session gate + account chip — added independently of the app
+// logic above. Nothing in the original script was changed.
+// ================================================================
+
+/*__AUTHCORE_START__*/
+const UserChipCore = {
+  displayName(user) {
+    if (!user) return '';
+    const meta = user.user_metadata || {};
+    return meta.full_name || user.email || '';
+  },
+  initial(user) {
+    const name = String(UserChipCore.displayName(user) || '').trim();
+    return name ? name[0].toUpperCase() : '?';
+  }
+};
+/*__AUTHCORE_END__*/
+
+const AUTH_SUPABASE_URL = 'https://jrgdoigwbflkrgirdkbf.supabase.co';
+const AUTH_SUPABASE_ANON_KEY = 'sb_publishable_sAOGyJRJd3vRJakZENqstg_icRjzyPH';
+
+let authClient = null;
+try {
+  if (window.supabase && typeof window.supabase.createClient === 'function') {
+    authClient = window.supabase.createClient(AUTH_SUPABASE_URL, AUTH_SUPABASE_ANON_KEY);
+  }
+} catch (e) { /* surfaced below */ }
+
+function goToAuth() { window.location.href = 'auth.html'; }
+
+function showUserChip(user) {
+  const chip = document.getElementById('userChip');
+  if (!chip) return;
+  document.getElementById('avatarInitial').textContent = UserChipCore.initial(user);
+  document.getElementById('menuName').textContent = UserChipCore.displayName(user);
+  document.getElementById('menuEmail').textContent = user.email || '';
+  chip.style.display = 'flex';
+}
+
+(function gate() {
+  const overlay = document.getElementById('authGate');
+  if (!authClient) {
+    if (overlay) overlay.querySelector('p').textContent = 'Could not reach the sign-in service. Check your internet connection and reload.';
+    return;
+  }
+  authClient.auth.getSession().then(function (res) {
+    const session = res && res.data && res.data.session;
+    if (!session) { goToAuth(); return; }
+    showUserChip(session.user);
+    if (overlay) overlay.remove();
+  }).catch(function () {
+    if (overlay) overlay.querySelector('p').textContent = 'Could not verify your session. Reload the page to try again.';
+  });
+})();
+
+const avatarBtn = document.getElementById('avatarBtn');
+if (avatarBtn) {
+  avatarBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    document.getElementById('userMenu').classList.toggle('open');
+  });
+}
+document.addEventListener('click', function () {
+  const menu = document.getElementById('userMenu');
+  if (menu) menu.classList.remove('open');
+});
+const signOutBtn = document.getElementById('signOutBtn');
+if (signOutBtn) {
+  signOutBtn.addEventListener('click', function () {
+    if (!authClient) { goToAuth(); return; }
+    authClient.auth.signOut().then(goToAuth).catch(goToAuth);
+  });
 }
 </script>
 </body>
