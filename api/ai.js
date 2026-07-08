@@ -2,30 +2,31 @@
 // Smash_It — AI Meeting Assistant
 // api/ai.js — Vercel Node serverless function (OpenAI)
 // ------------------------------------------------------------
-// NOTE: earlier versions of this file used `runtime: 'edge'`.
-// Vercel changed how edge functions behave and that broke this
-// endpoint (500 / FUNCTION_INVOCATION_FAILED). This version runs
-// on the standard Node.js serverless runtime instead — no config
-// export needed, and req.body is already parsed by Vercel.
+// This version accepts the full conversation history (not just a
+// single question), so instructions given earlier in the chat
+// ("answer as the ops lead managing both LOBs") keep applying to
+// every later answer, automatic or typed — like a real chat.
 // ============================================================
 
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
 const MODEL = 'gpt-4o-mini'; // fast + cheap, good for real-time meeting answers
 
-const MAX_QUESTION_CHARS = 2000;
-const MAX_TRANSCRIPT_CHARS = 1600;
+const MAX_MESSAGE_CHARS = 2000;
+const MAX_HISTORY_MESSAGES = 40;
 const MAX_SOURCE_CHARS_EACH = 9000;
 const MAX_SOURCES_TOTAL_CHARS = 30000;
 const MAX_SOURCES = 6;
 
-const SYSTEM_PROMPT = `You are Smash_It, a real-time AI meeting co-pilot. The person you're helping is in a live meeting right now and just got asked a question (or wants to ask one themselves). You have background reference documents about their role and work — but you are NOT limited to only what's written there. Think of yourself as a sharp, quick-thinking professional colleague helping them respond confidently in the moment.
+const SYSTEM_PROMPT = `You are Smash_It, a real-time AI meeting co-pilot, talking with the user in an ongoing chat. They are in a live meeting right now. You have background reference documents about their role and work — but you are NOT limited to only what's written there. Think of yourself as a sharp, quick-thinking professional colleague helping them respond confidently in the moment.
 
-How to answer:
-1. If the documents directly answer the question, use them as the basis of your answer.
+This is a real conversation with memory: if the user gives you an instruction earlier in the chat (e.g. "answer as the ops lead managing both LOBs", "keep answers under 3 sentences", "assume I'm talking to the board"), keep following it for every later message unless they say otherwise. Treat earlier turns as real context, not just background noise.
+
+How to answer each new question:
+1. If the documents directly answer it, use them as the basis of your answer.
 2. If the documents contain related or adjacent information but not an exact answer, blend that context with your own reasoning to construct a natural, confident answer — the kind a competent professional would give on the spot. Do NOT say the documents don't cover it and do NOT refuse to answer.
 3. If the documents have nothing relevant at all, answer from general professional reasoning for their apparent role and context. Still be concise and confident — never a dead end.
-4. Keep it meeting-ready: 2-5 sentences, natural spoken tone, no hedging like "it depends" unless truly necessary.
-5. "sources" = document names you actually drew on (empty array if none contributed).
+4. Keep it meeting-ready: 2-5 sentences, natural spoken tone, no hedging like "it depends" unless truly necessary — unless an earlier instruction says otherwise.
+5. "sources" = document names you actually drew on for THIS answer (empty array if none contributed).
 6. "basis" = "document" if the answer came directly from the documents, "blended" if you combined documents with your own reasoning, "general" if you answered from reasoning alone with no real document support.
 
 Respond with STRICT JSON only — no markdown, no code fences, no text outside the JSON object:
@@ -50,15 +51,22 @@ module.exports = async function handler(req, res) {
 
   const body = req.body || {};
 
-  let question = (body.question || '').toString().trim();
-  const transcriptContext = (body.transcriptContext || '').toString().slice(0, MAX_TRANSCRIPT_CHARS);
+  let history = Array.isArray(body.messages) ? body.messages : [];
   let sources = Array.isArray(body.sources) ? body.sources : [];
 
-  if (!question || question.length < 4) {
-    res.status(400).json({ error: 'Question is empty or too short.' });
+  history = history
+    .filter(function (m) { return m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim().length > 0; })
+    .map(function (m) { return { role: m.role, content: m.content.slice(0, MAX_MESSAGE_CHARS) }; })
+    .slice(-MAX_HISTORY_MESSAGES);
+
+  if (!history.length || history[history.length - 1].role !== 'user') {
+    res.status(400).json({ error: 'No question to answer — the conversation must end with a user message.' });
     return;
   }
-  question = question.slice(0, MAX_QUESTION_CHARS);
+  if (history[history.length - 1].content.trim().length < 2) {
+    res.status(400).json({ error: 'That message is too short.' });
+    return;
+  }
 
   sources = sources
     .filter(function (s) { return s && s.name && s.text && String(s.text).trim().length > 0; })
@@ -75,10 +83,9 @@ module.exports = async function handler(req, res) {
     docsBlock.push('[Source: ' + sources[i].name + ']\n' + text);
   }
 
-  const userMessage =
-    (docsBlock.length ? 'BACKGROUND DOCUMENTS (reference only — not a hard limit):\n' + docsBlock.join('\n\n---\n\n') + '\n\n' : 'BACKGROUND DOCUMENTS: none provided.\n\n') +
-    (transcriptContext ? 'MEETING CONTEXT (recent transcript, for reference only):\n' + transcriptContext + '\n\n' : '') +
-    'QUESTION ASKED IN THE MEETING:\n' + question;
+  const docsMessage = docsBlock.length
+    ? 'BACKGROUND DOCUMENTS (reference only — not a hard limit, relevant to the latest question):\n' + docsBlock.join('\n\n---\n\n')
+    : 'BACKGROUND DOCUMENTS: none relevant to the latest question.';
 
   const payload = {
     model: MODEL,
@@ -86,8 +93,8 @@ module.exports = async function handler(req, res) {
     max_tokens: 500,
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'user', content: userMessage }
-    ],
+      { role: 'system', content: docsMessage }
+    ].concat(history),
     response_format: { type: 'json_object' }
   };
 
