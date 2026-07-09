@@ -83,6 +83,15 @@ body.listening .wordmark .u{animation:blink 1.1s steps(1) infinite}
 .chathead{display:flex; align-items:center; gap:10px; padding:10px 18px; background:var(--card); border-bottom:1px solid var(--line); flex-shrink:0; height:56px}
 .chathead .spacer{flex:1}
 
+/* ---- compact, centered chat card ---- */
+.chatCardWrap{flex:1; min-height:0; display:flex; justify-content:center; padding:24px}
+.chatCard{
+  width:100%; max-width:560px; max-height:600px;
+  background:var(--card); border:1px solid var(--line); border-radius:16px;
+  box-shadow:0 1px 2px rgba(16,22,35,.05), 0 12px 32px rgba(16,22,35,.1);
+  display:flex; flex-direction:column; overflow:hidden;
+}
+
 .docwrap{position:relative}
 .docbtn{
   display:flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:var(--muted);
@@ -252,17 +261,22 @@ body.listening .wordmark .u{animation:blink 1.1s steps(1) infinite}
         </div>
       </div>
     </div>
-    <div class="chatBody" id="chatBody">
-      <div class="chatEmpty" id="chatEmpty">
-        This is a normal chat — <b>type a question, or give it instructions for how to answer during this meeting</b> ("answer as the ops lead managing both LOBs"). It remembers everything you say for the rest of the session.<br><br>
-        Real questions heard in the meeting land here automatically too — nothing to click.
+    <div class="chatCardWrap">
+      <div class="chatCard">
+        <div class="chatBody" id="chatBody">
+          <div class="chatEmpty" id="chatEmpty">
+            This is a normal chat — <b>type a question, or give it instructions for how to answer during this meeting</b> ("answer as the ops lead managing both LOBs"). It remembers everything you say for the rest of the session.<br><br>
+            Real questions heard in the meeting land here automatically too — nothing to click.
+          </div>
+        </div>
+        <form class="chatbar" id="askForm">
+          <input type="text" id="askInput" placeholder="Type a question or an instruction…" autocomplete="off" maxlength="1000">
+          <button type="submit">Send</button>
+        </form>
       </div>
     </div>
-    <form class="chatbar" id="askForm">
-      <input type="text" id="askInput" placeholder="Type a question or an instruction…" autocomplete="off" maxlength="1000">
-      <button type="submit">Send</button>
-    </form>
   </main>
+
 
 </div>
 
