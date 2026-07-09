@@ -79,28 +79,22 @@ body.listening .wordmark .u{animation:blink 1.1s steps(1) infinite}
 @keyframes eq{0%,100%{transform:scaleY(.4)} 50%{transform:scaleY(1)}}
 
 /* ============ RIGHT: CHAT ============ */
-.chatpane{flex:1; min-width:0; display:flex; flex-direction:column; background:var(--paper)}
-.chathead{display:flex; align-items:center; gap:10px; padding:10px 18px; background:var(--card); border-bottom:1px solid var(--line); flex-shrink:0; height:56px}
-.chathead .spacer{flex:1}
+.chatpane{flex:1; min-width:0; display:flex; flex-direction:column; background:var(--card)}
 
-/* ---- compact, centered chat card ---- */
-.chatCardWrap{flex:1; min-height:0; display:flex; justify-content:center; padding:24px}
-.chatCard{
-  width:100%; max-width:560px; max-height:600px;
-  background:var(--card); border:1px solid var(--line); border-radius:16px;
-  box-shadow:0 1px 2px rgba(16,22,35,.05), 0 12px 32px rgba(16,22,35,.1);
-  display:flex; flex-direction:column; overflow:hidden;
+.docwrap{position:relative; flex-shrink:0}
+.attachbtn{
+  position:relative; width:38px; height:38px; border-radius:50%; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center; font-size:16px;
+  border:1px solid var(--line); background:#fff; transition:border-color .15s, color .15s;
 }
-
-.docwrap{position:relative}
-.docbtn{
-  display:flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:var(--muted);
-  border:1px solid var(--line); border-radius:99px; padding:6px 12px; background:#fff; transition:border-color .15s, color .15s;
+.attachbtn:hover{border-color:var(--teal); color:var(--teal)}
+.attachbtn.has{border-color:var(--teal-line); background:var(--teal-soft)}
+.attachbtn .badge{
+  position:absolute; top:-3px; right:-3px; min-width:16px; height:16px; padding:0 3px; border-radius:99px;
+  background:var(--teal); color:#fff; font-size:9.5px; font-weight:700; align-items:center; justify-content:center; line-height:1;
 }
-.docbtn:hover{border-color:var(--teal); color:var(--teal)}
-.docbtn.has{color:var(--teal-deep); background:var(--teal-soft); border-color:var(--teal-line)}
 .docpop{
-  position:absolute; top:calc(100% + 8px); right:0; width:280px; background:#fff; border-radius:12px;
+  position:absolute; bottom:calc(100% + 10px); left:0; width:280px; background:#fff; border-radius:12px;
   box-shadow:0 10px 30px rgba(16,22,35,.28); padding:12px; display:none; z-index:90;
 }
 .docpop.open{display:block; animation:slidein .15s ease}
@@ -126,7 +120,7 @@ body.listening .wordmark .u{animation:blink 1.1s steps(1) infinite}
 .avatar{
   width:30px; height:30px; border-radius:50%; background:var(--teal); color:#fff;
   font-weight:700; font-size:12px; display:flex; align-items:center; justify-content:center;
-  border:2px solid var(--line); transition:border-color .15s;
+  border:2px solid var(--navy-3); transition:border-color .15s;
 }
 .avatar:hover{border-color:var(--teal)}
 .usermenu{
@@ -140,8 +134,8 @@ body.listening .wordmark .u{animation:blink 1.1s steps(1) infinite}
 .signoutbtn{width:100%; text-align:left; padding:8px 10px; border-radius:8px; font-size:13px; font-weight:600; color:var(--live)}
 .signoutbtn:hover{background:var(--live-soft)}
 
-/* ---- chat thread ---- */
-.chatBody{flex:1; min-height:0; overflow-y:auto; padding:18px 22px; display:flex; flex-direction:column; gap:12px}
+/* ---- chat thread — fills the pane, no wasted space ---- */
+.chatBody{flex:1; min-height:0; overflow-y:auto; padding:20px 22px; display:flex; flex-direction:column; gap:12px}
 .chatEmpty{margin:auto; max-width:420px; text-align:center; color:var(--faint); font-size:13px; line-height:1.7}
 .chatEmpty b{color:var(--muted)}
 
@@ -163,8 +157,8 @@ body.listening .wordmark .u{animation:blink 1.1s steps(1) infinite}
 .chatbar{border-top:1px solid var(--line); padding:12px 18px; display:flex; gap:9px; flex-shrink:0; background:var(--card)}
 .chatbar input{flex:1; min-width:0; border:1px solid var(--line); border-radius:var(--r-ctl); padding:10px 13px; font-family:inherit; font-size:13.5px; background:#FBFCFD}
 .chatbar input:focus{border-color:var(--teal); background:#fff; outline:none}
-.chatbar button{background:var(--teal); color:#fff; font-weight:700; font-size:13px; border-radius:var(--r-ctl); padding:10px 18px; flex-shrink:0}
-.chatbar button:hover{background:var(--teal-deep)}
+.chatbar .sendbtn{background:var(--teal); color:#fff; font-weight:700; font-size:13px; border-radius:var(--r-ctl); padding:10px 18px; flex-shrink:0}
+.chatbar .sendbtn:hover{background:var(--teal-deep)}
 
 /* ============ TOAST ============ */
 .toasts{position:fixed; bottom:16px; left:50%; transform:translateX(-50%); z-index:120; display:flex; flex-direction:column; gap:8px; align-items:center}
@@ -220,6 +214,16 @@ body.listening .wordmark .u{animation:blink 1.1s steps(1) infinite}
       <div class="wordmark">SMASH<span class="u">_</span>IT</div>
       <div class="spacer"></div>
       <button class="micbtn" id="recBtn" type="button"><span class="dot"></span><span id="recLabel">Start</span></button>
+      <div class="userchip" id="userChip" style="display:none">
+        <button class="avatar" id="avatarBtn" type="button" title="Account"><span id="avatarInitial"></span></button>
+        <div class="usermenu" id="userMenu">
+          <div class="ue">
+            <div class="uname" id="menuName"></div>
+            <div class="uemail mono" id="menuEmail"></div>
+          </div>
+          <button class="signoutbtn" id="signOutBtn" type="button">Sign out</button>
+        </div>
+      </div>
     </div>
     <div class="tzHead">
       <span class="eyebrow">TRANSCRIPT</span>
@@ -233,13 +237,17 @@ body.listening .wordmark .u{animation:blink 1.1s steps(1) infinite}
     </div>
   </aside>
 
-  <!-- ============ RIGHT: CHAT ============ -->
+  <!-- ============ RIGHT: CHAT — fills edge to edge, no wasted space ============ -->
   <main class="chatpane">
-    <div class="chathead">
-      <span class="eyebrow">AI CHAT</span>
-      <div class="spacer"></div>
+    <div class="chatBody" id="chatBody">
+      <div class="chatEmpty" id="chatEmpty">
+        This is a normal chat — <b>type a question, or give it instructions for how to answer during this meeting</b> ("answer as the ops lead managing both LOBs"). It remembers everything you say for the rest of the session.<br><br>
+        Real questions heard in the meeting land here automatically too — nothing to click.
+      </div>
+    </div>
+    <form class="chatbar" id="askForm">
       <div class="docwrap">
-        <button class="docbtn" id="docBtn" type="button">📎 <span id="docCount">0 docs</span></button>
+        <button class="attachbtn" id="docBtn" type="button" title="Attach documents">📎<span class="badge" id="docCount" style="display:none">0</span></button>
         <div class="docpop" id="docPop">
           <div class="dropzone" id="dropzone" role="button" tabindex="0">
             <b>Upload documents</b>
@@ -250,31 +258,9 @@ body.listening .wordmark .u{animation:blink 1.1s steps(1) infinite}
           <div class="filelist" id="fileList"></div>
         </div>
       </div>
-      <div class="userchip" id="userChip" style="display:none">
-        <button class="avatar" id="avatarBtn" type="button" title="Account"><span id="avatarInitial"></span></button>
-        <div class="usermenu" id="userMenu">
-          <div class="ue">
-            <div class="uname" id="menuName"></div>
-            <div class="uemail mono" id="menuEmail"></div>
-          </div>
-          <button class="signoutbtn" id="signOutBtn" type="button">Sign out</button>
-        </div>
-      </div>
-    </div>
-    <div class="chatCardWrap">
-      <div class="chatCard">
-        <div class="chatBody" id="chatBody">
-          <div class="chatEmpty" id="chatEmpty">
-            This is a normal chat — <b>type a question, or give it instructions for how to answer during this meeting</b> ("answer as the ops lead managing both LOBs"). It remembers everything you say for the rest of the session.<br><br>
-            Real questions heard in the meeting land here automatically too — nothing to click.
-          </div>
-        </div>
-        <form class="chatbar" id="askForm">
-          <input type="text" id="askInput" placeholder="Type a question or an instruction…" autocomplete="off" maxlength="1000">
-          <button type="submit">Send</button>
-        </form>
-      </div>
-    </div>
+      <input type="text" id="askInput" placeholder="Type a question or an instruction…" autocomplete="off" maxlength="1000">
+      <button type="submit" class="sendbtn">Send</button>
+    </form>
   </main>
 
 
@@ -595,8 +581,10 @@ function addDoc(name, text, chip) {
 
 function updateDocBadge() {
   const n = state.docs.length;
-  els.docCount.textContent = n + (n === 1 ? ' doc' : ' docs');
+  els.docCount.textContent = String(n);
+  els.docCount.style.display = n > 0 ? 'flex' : 'none';
   els.docBtn.classList.toggle('has', n > 0);
+  els.docBtn.title = n > 0 ? (n + (n === 1 ? ' document attached' : ' documents attached')) : 'Attach documents';
 }
 
 els.pasteLink.addEventListener('click', function () {
