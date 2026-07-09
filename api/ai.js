@@ -1,15 +1,23 @@
 // ============================================================
 // Smash_It — AI Meeting Assistant
-// api/ai.js — Vercel Node serverless function (OpenAI)
+// api/ai.js — Vercel Node serverless function (Groq — free tier)
 // ------------------------------------------------------------
-// This version accepts the full conversation history (not just a
-// single question), so instructions given earlier in the chat
-// ("answer as the ops lead managing both LOBs") keep applying to
-// every later answer, automatic or typed — like a real chat.
+// Switched from OpenAI back to Groq (free) at Cap's request —
+// same GROQ_API_KEY already used on AceMock/TrustRoute, shares
+// that account's daily free-tier limit.
+//
+// Groq's API is OpenAI-compatible (same request/response shape),
+// so this file is otherwise identical to the OpenAI version —
+// only the endpoint, model, and env var name changed.
+//
+// Accepts the full conversation history (not just a single
+// question), so instructions given earlier in the chat ("answer
+// as the ops lead managing both LOBs") keep applying to every
+// later answer, automatic or typed — like a real chat.
 // ============================================================
 
-const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
-const MODEL = 'gpt-4o-mini'; // fast + cheap, good for real-time meeting answers
+const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const MODEL = 'llama-3.3-70b-versatile'; // free tier
 
 const MAX_MESSAGE_CHARS = 2000;
 const MAX_HISTORY_MESSAGES = 40;
@@ -43,9 +51,9 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(204).end(); return; }
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed. Use POST.' }); return; }
 
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
-    res.status(500).json({ error: 'API key not configured. Add OPENAI_API_KEY in Vercel → Settings → Environment Variables, then redeploy.' });
+    res.status(500).json({ error: 'API key not configured. Add GROQ_API_KEY in Vercel → Settings → Environment Variables, then redeploy.' });
     return;
   }
 
@@ -99,7 +107,7 @@ module.exports = async function handler(req, res) {
   };
 
   try {
-    let resp = await fetch(OPENAI_URL, {
+    let resp = await fetch(GROQ_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey },
       body: JSON.stringify(payload)
@@ -109,34 +117,34 @@ module.exports = async function handler(req, res) {
       const errText = await resp.text();
       if (/response_format|json_object/i.test(errText)) {
         delete payload.response_format;
-        resp = await fetch(OPENAI_URL, {
+        resp = await fetch(GROQ_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey },
           body: JSON.stringify(payload)
         });
       } else {
-        res.status(400).json({ error: 'OpenAI rejected the request: ' + errText.slice(0, 400) });
+        res.status(400).json({ error: 'Groq rejected the request: ' + errText.slice(0, 400) });
         return;
       }
     }
 
     if (resp.status === 429) {
-      res.status(429).json({ error: 'OpenAI rate limit or quota reached. Wait a moment and try again, or check your OpenAI billing.' });
+      res.status(429).json({ error: 'Groq rate limit reached (free tier). Wait a minute and try again — daily/minute limits reset automatically.' });
       return;
     }
     if (resp.status === 401) {
-      res.status(401).json({ error: 'OpenAI rejected the API key. Check OPENAI_API_KEY in Vercel → Settings → Environment Variables.' });
+      res.status(401).json({ error: 'Groq rejected the API key. Check GROQ_API_KEY in Vercel → Settings → Environment Variables.' });
       return;
     }
     if (!resp.ok) {
       const errText = await resp.text();
-      res.status(resp.status).json({ error: 'OpenAI API error ' + resp.status + ': ' + errText.slice(0, 400) });
+      res.status(resp.status).json({ error: 'Groq API error ' + resp.status + ': ' + errText.slice(0, 400) });
       return;
     }
 
     const data = await resp.json();
     const content = data && data.choices && data.choices[0] && data.choices[0].message ? data.choices[0].message.content : '';
-    if (!content) { res.status(502).json({ error: 'OpenAI returned an empty response. Try again.' }); return; }
+    if (!content) { res.status(502).json({ error: 'Groq returned an empty response. Try again.' }); return; }
 
     res.status(200).json({ content: content, model: MODEL, usage: data.usage || null });
   } catch (e) {
