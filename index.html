@@ -155,23 +155,23 @@ body.listening .wordmark .u{animation:blink 1.1s steps(1) infinite}
 .signoutbtn{width:100%; text-align:left; padding:8px 10px; border-radius:8px; font-size:13px; font-weight:600; color:var(--live)}
 .signoutbtn:hover{background:var(--live-soft)}
 
-/* ---- chat thread — fills the pane, no wasted space ---- */
-.chatBody{flex:1; min-height:0; overflow-y:auto; padding:16px 16px; display:flex; flex-direction:column; gap:8px}
+/* ---- chat thread — kept minimal, no decorative spacing ---- */
+.chatBody{flex:1; min-height:0; overflow-y:auto; padding:12px 14px; display:flex; flex-direction:column; gap:5px}
 .chatEmpty{margin:auto; max-width:340px; text-align:center; color:var(--faint); font-size:12.5px; line-height:1.6}
 .chatEmpty b{color:var(--muted)}
 
-.msg{max-width:82%; padding:8px 12px; border-radius:13px; font-size:13px; line-height:1.48; animation:slidein .2s ease; word-break:break-word; white-space:pre-wrap}
+.msg{max-width:84%; padding:6px 10px; border-radius:11px; font-size:12.5px; line-height:1.4; animation:slidein .2s ease; word-break:break-word; white-space:pre-wrap}
 .msg.user{align-self:flex-end; background:var(--teal); color:#fff; border-bottom-right-radius:4px}
-.msg.user .autotag{display:block; font-size:10px; font-weight:700; letter-spacing:.03em; opacity:.85; margin-bottom:3px}
+.msg.user .autotag{display:block; font-size:9.5px; font-weight:700; letter-spacing:.03em; opacity:.85; margin-bottom:2px}
 .msg.ai{align-self:flex-start; background:var(--card); border:1px solid var(--line); border-bottom-left-radius:4px; box-shadow:var(--shadow)}
 .msg.ai.err{border-color:var(--live-line); background:var(--live-soft); color:var(--live)}
 .msg.pending{align-self:flex-start; color:var(--muted); background:none; border:none; box-shadow:none; display:flex; align-items:center; gap:8px; padding:2px 4px}
-.msg .foot{display:flex; align-items:center; gap:5px; flex-wrap:wrap; margin-top:6px}
+.msg .foot{display:flex; align-items:center; gap:5px; flex-wrap:wrap; margin-top:3px}
 .srcchip{display:inline-flex; align-items:center; gap:4px; font-size:10.5px; font-weight:600; color:var(--teal-deep); background:var(--teal-soft); border:1px solid var(--teal-line); border-radius:99px; padding:2px 8px}
-.basis{font-size:10px; font-weight:700; letter-spacing:.03em; border-radius:99px; padding:2px 9px; margin-left:auto}
-.basis.document{background:var(--teal-soft); color:var(--teal-deep)}
-.basis.blended{background:var(--amber-soft); color:var(--amber)}
-.basis.general{background:var(--violet-soft); color:var(--violet)}
+.basisdot{width:7px; height:7px; border-radius:50%; margin-left:auto; flex-shrink:0}
+.basisdot.document{background:var(--teal)}
+.basisdot.blended{background:var(--amber)}
+.basisdot.general{background:var(--violet)}
 .retrybtn{font-size:11.5px; font-weight:600; color:var(--live); border:1px solid var(--live-line); background:var(--live-soft); border-radius:7px; padding:4px 10px}
 .retrybtn:hover{background:#FBDCDD}
 
@@ -610,7 +610,21 @@ function addDoc(name, text, chip) {
   });
   chip.appendChild(rm);
   updateDocBadge();
-  toast('"' + name + '" processed — Smash_It has read it');
+  announceDocReceived(name, doc.words);
+}
+
+// A visible, persistent confirmation in the chat itself — not just a toast
+// that disappears — so it's never in doubt whether a document went through.
+function announceDocReceived(name, words) {
+  els.chatEmpty.style.display = 'none';
+  const line = 'Got it — I\'ve read "' + name + '" (' + words.toLocaleString() + ' words). I\'ll use it whenever it\'s relevant.';
+  const el = document.createElement('div');
+  el.className = 'msg ai';
+  el.textContent = '📄 ' + line;
+  els.chatBody.appendChild(el);
+  els.chatBody.scrollTop = els.chatBody.scrollHeight;
+  state.history.push({ role: 'assistant', content: line });
+  if (state.history.length > MAX_HISTORY_MESSAGES) state.history = state.history.slice(-MAX_HISTORY_MESSAGES);
 }
 
 function updateDocBadge() {
@@ -860,7 +874,7 @@ function renderAiBubble(content) {
   const body = document.createElement('div'); body.textContent = a.answer; el.appendChild(body);
   const foot = document.createElement('div'); foot.className = 'foot';
   a.sources.forEach(function (s) { const chip = document.createElement('span'); chip.className = 'srcchip'; chip.textContent = '📄 ' + s; foot.appendChild(chip); });
-  const basis = document.createElement('span'); basis.className = 'basis ' + a.basis; basis.textContent = BASIS_LABEL[a.basis]; foot.appendChild(basis);
+  const basis = document.createElement('span'); basis.className = 'basisdot ' + a.basis; basis.title = BASIS_LABEL[a.basis]; foot.appendChild(basis);
   el.appendChild(foot);
   els.chatBody.appendChild(el);
   els.chatBody.scrollTop = els.chatBody.scrollHeight;
