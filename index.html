@@ -284,7 +284,7 @@ body.listening .wordmark .u{animation:blink 1.1s steps(1) infinite}
             </div>
           </div>
           <input type="text" id="askInput" placeholder="Type a question or an instruction…" autocomplete="off" maxlength="1000">
-          <button type="submit" class="sendbtn" title="Send" aria-label="Send">↑</button>
+          <button type="submit" class="sendbtn" id="sendBtn" title="Send" aria-label="Send">↑</button>
         </form>
       </div>
       <div class="chatPlaceholder" id="chatPlaceholder" style="display:none">
@@ -514,7 +514,7 @@ const state = {
   nextId: 1,
   pendingUploads: 0      // documents still being read — a message must wait for this to hit 0
 };
-const CONTEXT_BUDGET = 18000;
+const CONTEXT_BUDGET = 60000; // generous headroom — several real documents together should virtually never need the fallback path
 const MAX_FILES = 5;
 const MAX_HISTORY_MESSAGES = 40; // keeps a full meeting's worth of context without unbounded growth
 
@@ -525,7 +525,7 @@ const els = {
   dropzone: $('dropzone'), fileInput: $('fileInput'), fileList: $('fileList'),
   pasteLink: $('pasteLink'), pasteOverlay: $('pasteOverlay'), pasteName: $('pasteName'), pasteText: $('pasteText'), pasteAdd: $('pasteAdd'), pasteCancel: $('pasteCancel'),
   chatBody: $('chatBody'), chatEmpty: $('chatEmpty'),
-  askForm: $('askForm'), askInput: $('askInput'),
+  askForm: $('askForm'), askInput: $('askInput'), sendBtn: $('sendBtn'),
   tScroll: $('tScroll'), tEmpty: $('tEmpty'), noSupport: $('noSupport'), timer: $('timer'),
   toasts: $('toasts'),
   chatCardWrap: $('chatCardWrap'), chatCard: $('chatCard'), chatPlaceholder: $('chatPlaceholder'), popoutBtn: $('popoutBtn')
@@ -587,6 +587,7 @@ function processFile(file) {
   els.fileList.appendChild(chip);
 
   state.pendingUploads++;
+  if (state.pendingUploads === 1) lockComposerForUpload(true);
   extractText(file, ext).then(function (raw) {
     const text = SmashCore.cleanExtracted(raw);
     if (text.length < 40) { failChip(chip, 'No text found'); return; }
@@ -596,7 +597,26 @@ function processFile(file) {
     console.error('Extract failed:', err);
   }).finally(function () {
     state.pendingUploads--;
+    if (state.pendingUploads === 0) lockComposerForUpload(false);
   });
+}
+
+// Fully disables the composer (keyboard AND mouse — Enter and clicking Send
+// both go through it) while a document is actually being read. This removes
+// the timing race entirely rather than just waiting a capped amount of time:
+// a slow first-time PDF read (which can include downloading a small reader
+// component) can genuinely take longer than any fixed wait would allow for.
+let composerPlaceholderBackup = null;
+function lockComposerForUpload(locked) {
+  els.askInput.disabled = locked;
+  els.sendBtn.disabled = locked;
+  if (locked) {
+    composerPlaceholderBackup = els.askInput.placeholder;
+    els.askInput.placeholder = 'Reading document…';
+  } else if (composerPlaceholderBackup !== null) {
+    els.askInput.placeholder = composerPlaceholderBackup;
+    composerPlaceholderBackup = null;
+  }
 }
 
 function extractText(file, ext) {
@@ -847,7 +867,7 @@ function sendMessage(text, opts) {
   if (waitingForUploads) setPendingText(pending, 'Finishing document upload…');
 
   state.inFlight = true;
-  waitForUploads(8000).then(function () {
+  waitForUploads(25000).then(function () {
     if (waitingForUploads) setPendingText(pending, 'Thinking…');
     // Computed AFTER the wait, so a just-finished upload is always included.
     const sources = SmashCore.selectContext(state.docs, text, CONTEXT_BUDGET);
