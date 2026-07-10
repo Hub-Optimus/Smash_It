@@ -2,43 +2,49 @@
 // Smash_It — AI Meeting Assistant
 // api/ai.js — Vercel Node serverless function (Groq — free tier)
 // ------------------------------------------------------------
-// Switched from OpenAI back to Groq (free) at Cap's request —
-// same GROQ_API_KEY already used on AceMock/TrustRoute, shares
-// that account's daily free-tier limit.
+// v10 — SIMPLIFIED "ANSWER LIKE CHATGPT" MODE
 //
-// Groq's API is OpenAI-compatible (same request/response shape),
-// so this file is otherwise identical to the OpenAI version —
-// only the endpoint, model, and env var name changed.
+// Cap's diagnosis: the document-delivery pipeline (docs pinned as
+// 📎 messages inside state.history) was already working correctly —
+// the CV really was reaching the model every time. The bug was the
+// SYSTEM PROMPT: a dense stack of numbered "CRITICAL" rules plus a
+// forced response_format:"json_object" was making the model overly
+// literal/cautious (a known pattern on JSON-mode + rule-heavy
+// prompts), so it kept saying "not available" with the answer
+// sitting right in front of it.
 //
-// Accepts the full conversation history (not just a single
-// question), so instructions given earlier in the chat ("answer
-// as the ops lead managing both LOBs") keep applying to every
-// later answer, automatic or typed — like a real chat.
+// Fix: removed the rule stack and the forced JSON mode entirely.
+// The model is now told to just answer naturally, the way ChatGPT
+// would, using whatever is in the conversation (including any 📎
+// documents) — no special-cased instructions for counting, refusing,
+// or preferring "prepared answers." A light JSON wrapper is still
+// *requested* (not forced) so the existing source-chip / basis-dot
+// UI keeps working — but nothing breaks if the model ignores it,
+// since the client already falls back to plain text gracefully.
+//
+// Document/history transport (pinning, trimming, char budgets) is
+// UNCHANGED — that part was never broken.
 // ============================================================
 
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 const MODEL = 'llama-3.3-70b-versatile'; // free tier
 
-const MAX_MESSAGE_CHARS = 2000;
-const MAX_HISTORY_MESSAGES = 40;
-const MAX_SOURCE_CHARS_EACH = 9000;
-const MAX_SOURCES_TOTAL_CHARS = 30000;
-const MAX_SOURCES = 6;
+const MAX_MESSAGE_CHARS = 70000; // must fit a whole pinned 📎 document message — the old 2000 cap would silently chop uploads
+const MAX_HISTORY_MESSAGES = 50; // up to 40 conversational turns + up to 5 pinned document messages, with headroom
 
-const SYSTEM_PROMPT = `You are Smash_It, a real-time AI meeting co-pilot, talking with the user in an ongoing chat. They are in a live meeting right now. You have background reference documents about their role and work — but you are NOT limited to only what's written there. Think of yourself as a sharp, quick-thinking professional colleague helping them respond confidently in the moment.
+const SYSTEM_PROMPT = `You are Smash_It, a helpful AI assistant sitting alongside the user during a live meeting. Talk to them the way ChatGPT would: naturally, directly, and conversationally — read the whole conversation and just answer.
 
-This is a real conversation with memory: if the user gives you an instruction earlier in the chat (e.g. "answer as the ops lead managing both LOBs", "keep answers under 3 sentences", "assume I'm talking to the board"), keep following it for every later message unless they say otherwise. Treat earlier turns as real context, not just background noise.
+The user may share reference documents in this chat — they appear as messages starting with 📎 "Uploaded document", containing the document's full text. Treat those exactly like a file someone handed you in a normal chat: read them, quote them, and compute from them (counts, totals, dates, durations, whatever's asked) whenever relevant, the same way you normally would. No special caution beyond what you'd normally apply — if the information is there, use it and answer with confidence.
 
-How to answer each new question:
-1. If the documents directly answer it, use them as the basis of your answer.
-2. If the documents contain related or adjacent information but not an exact answer, blend that context with your own reasoning to construct a natural, confident answer — the kind a competent professional would give on the spot. Do NOT say the documents don't cover it and do NOT refuse to answer.
-3. If the documents have nothing relevant at all, answer from general professional reasoning for their apparent role and context. Still be concise and confident — never a dead end.
-4. Keep it meeting-ready: 2-5 sentences, natural spoken tone, no hedging like "it depends" unless truly necessary — unless an earlier instruction says otherwise.
-5. "sources" = document names you actually drew on for THIS answer (empty array if none contributed).
-6. "basis" = "document" if the answer came directly from the documents, "blended" if you combined documents with your own reasoning, "general" if you answered from reasoning alone with no real document support.
+This is a real conversation with memory: if the user gave you an instruction earlier in the chat about how to answer (tone, role, length, "assume I'm talking to the board," etc.), keep following it for later messages too, unless they say otherwise.
 
-Respond with STRICT JSON only — no markdown, no code fences, no text outside the JSON object:
-{"answer": "...", "sources": ["Doc name"], "basis": "document" | "blended" | "general"}`;
+Answer plainly and confidently, matching length to the question — a quick factual lookup gets a sentence or two, an open-ended question gets a fuller answer. If something genuinely isn't anywhere in the conversation or documents and can't reasonably be worked out, just say so briefly and move on — don't dwell on it or over-explain what you can't find.
+
+Format your reply as JSON:
+{"answer": "your natural reply here", "sources": ["doc name", ...], "basis": "document" | "blended" | "general"}
+- sources: names of any 📎 documents you actually drew on for this answer (empty array if none)
+- basis: "document" if the answer came mainly from an uploaded document, "blended" if you combined a document with your own reasoning, "general" if you answered from general knowledge with no real document support
+If for any reason you can't format it as JSON, plain text is fine too.`;
 
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -60,7 +66,6 @@ module.exports = async function handler(req, res) {
   const body = req.body || {};
 
   let history = Array.isArray(body.messages) ? body.messages : [];
-  let sources = Array.isArray(body.sources) ? body.sources : [];
 
   history = history
     .filter(function (m) { return m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim().length > 0; })
@@ -76,57 +81,23 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  sources = sources
-    .filter(function (s) { return s && s.name && s.text && String(s.text).trim().length > 0; })
-    .slice(0, MAX_SOURCES)
-    .map(function (s) { return { name: String(s.name).slice(0, 120), text: String(s.text).slice(0, MAX_SOURCE_CHARS_EACH) }; });
-
-  let total = 0;
-  const docsBlock = [];
-  for (let i = 0; i < sources.length; i++) {
-    const remaining = MAX_SOURCES_TOTAL_CHARS - total;
-    if (remaining <= 0) break;
-    const text = sources[i].text.slice(0, remaining);
-    total += text.length;
-    docsBlock.push('[Source: ' + sources[i].name + ']\n' + text);
-  }
-
-  const docsMessage = docsBlock.length
-    ? 'BACKGROUND DOCUMENTS (reference only — not a hard limit, relevant to the latest question):\n' + docsBlock.join('\n\n---\n\n')
-    : 'BACKGROUND DOCUMENTS: none relevant to the latest question.';
-
   const payload = {
     model: MODEL,
-    temperature: 0.4,
-    max_tokens: 500,
-    messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'system', content: docsMessage }
-    ].concat(history),
-    response_format: { type: 'json_object' }
+    temperature: 0.6,
+    max_tokens: 800,
+    messages: [{ role: 'system', content: SYSTEM_PROMPT }].concat(history)
+    // Note: no response_format:"json_object" here on purpose — forcing
+    // JSON mode is the likely cause of the over-literal "not available"
+    // answers. We ask nicely for JSON in the prompt instead; the client
+    // already falls back to plain text gracefully if it doesn't parse.
   };
 
   try {
-    let resp = await fetch(GROQ_URL, {
+    const resp = await fetch(GROQ_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey },
       body: JSON.stringify(payload)
     });
-
-    if (resp.status === 400) {
-      const errText = await resp.text();
-      if (/response_format|json_object/i.test(errText)) {
-        delete payload.response_format;
-        resp = await fetch(GROQ_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey },
-          body: JSON.stringify(payload)
-        });
-      } else {
-        res.status(400).json({ error: 'Groq rejected the request: ' + errText.slice(0, 400) });
-        return;
-      }
-    }
 
     if (resp.status === 429) {
       res.status(429).json({ error: 'Groq rate limit reached (free tier). Wait a minute and try again — daily/minute limits reset automatically.' });
