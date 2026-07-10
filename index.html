@@ -157,17 +157,17 @@ body.listening .wordmark .u{animation:blink 1.1s steps(1) infinite}
 .signoutbtn:hover{background:var(--live-soft)}
 
 /* ---- chat thread — kept minimal, no decorative spacing ---- */
-.chatBody{flex:1; min-height:0; overflow-y:auto; padding:12px 14px; display:flex; flex-direction:column; gap:5px}
+.chatBody{flex:1; min-height:0; overflow-y:auto; padding:8px 10px; display:flex; flex-direction:column; gap:3px}
 .chatEmpty{margin:auto; max-width:340px; text-align:center; color:var(--faint); font-size:12.5px; line-height:1.6}
 .chatEmpty b{color:var(--muted)}
 
-.msg{max-width:84%; padding:6px 10px; border-radius:11px; font-size:12.5px; line-height:1.4; animation:slidein .2s ease; word-break:break-word; white-space:pre-wrap}
-.msg.user{align-self:flex-end; background:var(--teal); color:#fff; border-bottom-right-radius:4px}
-.msg.user .autotag{display:block; font-size:9.5px; font-weight:700; letter-spacing:.03em; opacity:.85; margin-bottom:2px}
-.msg.ai{align-self:flex-start; background:var(--card); border:1px solid var(--line); border-bottom-left-radius:4px; box-shadow:var(--shadow)}
+.msg{max-width:86%; padding:5px 9px; border-radius:10px; font-size:12px; line-height:1.32; animation:slidein .2s ease; word-break:break-word; white-space:pre-wrap}
+.msg.user{align-self:flex-end; background:var(--teal); color:#fff; border-bottom-right-radius:3px}
+.msg.user .autotag{display:block; font-size:9px; font-weight:700; letter-spacing:.02em; opacity:.85; margin-bottom:1px}
+.msg.ai{align-self:flex-start; background:var(--card); border:1px solid var(--line); border-bottom-left-radius:3px}
 .msg.ai.err{border-color:var(--live-line); background:var(--live-soft); color:var(--live)}
-.msg.pending{align-self:flex-start; color:var(--muted); background:none; border:none; box-shadow:none; display:flex; align-items:center; gap:8px; padding:2px 4px}
-.msg .foot{display:flex; align-items:center; gap:5px; flex-wrap:wrap; margin-top:3px}
+.msg.pending{align-self:flex-start; color:var(--muted); background:none; border:none; box-shadow:none; display:flex; align-items:center; gap:7px; padding:1px 3px}
+.msg .foot{display:flex; align-items:center; gap:4px; flex-wrap:wrap; margin-top:2px}
 .srcchip{display:inline-flex; align-items:center; gap:4px; font-size:10.5px; font-weight:600; color:var(--teal-deep); background:var(--teal-soft); border:1px solid var(--teal-line); border-radius:99px; padding:2px 8px}
 .basisdot{width:7px; height:7px; border-radius:50%; margin-left:auto; flex-shrink:0}
 .basisdot.document{background:var(--teal)}
@@ -426,6 +426,24 @@ const SmashCore = {
 
   selectContext(docs, question, budget) {
     budget = budget || 18000;
+    if (!docs.length) return [];
+
+    const totalSize = docs.reduce(function (sum, d) {
+      return sum + d.chunks.reduce(function (s, c) { return s + c.length; }, 0);
+    }, 0);
+
+    // Small enough to send whole — skip keyword filtering entirely. This is
+    // the common case (a CV, a PRD, meeting notes) and avoids the failure
+    // mode where a chunk holding the actual answer (e.g. a dates/companies
+    // table) shares no literal words with the question and gets excluded,
+    // even though the document easily fits the budget with room to spare.
+    if (totalSize <= budget) {
+      return docs.map(function (doc) {
+        return { name: doc.name, text: doc.chunks.join('\n…\n') };
+      });
+    }
+
+    // Too large to send whole — fall back to keyword-relevance selection.
     const keywords = SmashCore.tokenize(question);
     const scored = [];
     docs.forEach(function (doc, di) {
@@ -433,7 +451,6 @@ const SmashCore = {
         scored.push({ di: di, ci: ci, name: doc.name, chunk: chunk, score: SmashCore.scoreChunk(chunk, keywords) });
       });
     });
-    if (!scored.length) return [];
     const anyHit = scored.some(function (s) { return s.score > 0; });
     let picked = [];
     let used = 0;
@@ -441,7 +458,6 @@ const SmashCore = {
       scored.sort(function (a, b) { return b.score - a.score || a.di - b.di || a.ci - b.ci; });
       for (let i = 0; i < scored.length; i++) {
         const s = scored[i];
-        if (s.score === 0 && picked.length) break;
         if (used + s.chunk.length > budget) continue;
         picked.push(s); used += s.chunk.length;
         if (used > budget * 0.96) break;
