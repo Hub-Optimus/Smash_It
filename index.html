@@ -439,7 +439,11 @@ const SmashCore = {
     // even though the document easily fits the budget with room to spare.
     if (totalSize <= budget) {
       return docs.map(function (doc) {
-        return { name: doc.name, text: doc.chunks.join('\n…\n') };
+        // Prefer the real, original text — never rejoin chunks with '…' here,
+        // since that mark means "content skipped," and for a whole-document
+        // send, nothing was actually skipped. A stray '…' at an arbitrary
+        // chunk boundary could make the model doubt information it fully has.
+        return { name: doc.name, text: doc.text || doc.chunks.join('\n') };
       });
     }
 
@@ -625,7 +629,7 @@ function failChip(chip, msg) {
 }
 
 function addDoc(name, text, chip) {
-  const doc = { id: state.nextId++, name: name, chars: text.length, words: SmashCore.wordCount(text), chunks: SmashCore.chunkText(text, 1400) };
+  const doc = { id: state.nextId++, name: name, chars: text.length, words: SmashCore.wordCount(text), chunks: SmashCore.chunkText(text, 1400), text: text };
   state.docs.push(doc);
   chip.querySelector('.fmeta').textContent = doc.words.toLocaleString() + ' words';
   const loader = chip.querySelector('.floader'); if (loader) loader.remove();
