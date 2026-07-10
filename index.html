@@ -42,6 +42,7 @@ button:focus-visible, a:focus-visible, input:focus-visible{outline:2px solid var
 
 /* ============ LEFT: NAME + TRANSCRIPT ============ */
 .sidebar{width:300px; flex-shrink:0; background:var(--card); border-right:1px solid var(--line); display:flex; flex-direction:column; min-width:0}
+.buildtag{flex-shrink:0; padding:6px 10px; font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--faint); border-top:1px solid var(--line-soft); text-align:center; letter-spacing:.02em; user-select:text}
 .sidehead{
   background:var(--navy); color:#fff; flex-shrink:0; display:flex; align-items:center; gap:10px; padding:0 14px; height:56px;
 }
@@ -260,6 +261,7 @@ body.listening .wordmark .u{animation:blink 1.1s steps(1) infinite}
         <div class="nosupport" id="noSupport" style="display:none">Voice input needs Chrome or Edge on desktop. You can still type in the chat.</div>
       </div>
     </div>
+    <div class="buildtag" title="If this doesn't match what Cap expects, do a hard refresh (Ctrl+Shift+R) before assuming a code bug.">build v14 · index_v14_composer_lock_buildtag</div>
   </aside>
 
   <!-- ============ RIGHT: CHAT — fills edge to edge, no wasted space ============ -->
