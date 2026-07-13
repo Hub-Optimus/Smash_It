@@ -156,24 +156,24 @@ body.listening .wordmark .u{animation:blink 1.1s steps(1) infinite}
 .ue .uemail{font-size:11px; color:var(--faint); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
 .signoutbtn{width:100%; text-align:left; padding:8px 10px; border-radius:8px; font-size:13px; font-weight:600; color:var(--live)}
 .signoutbtn:hover{background:var(--live-soft)}
+.aiSettingsBtn{width:100%; text-align:left; padding:8px 10px; border-radius:8px; font-size:13px; font-weight:600; color:var(--teal-deep); margin-bottom:2px}
+.aiSettingsBtn:hover{background:var(--teal-soft)}
+.aiPickerBar{display:flex; align-items:center; gap:8px; width:100%; padding:9px 14px; background:var(--navy-2); border:none; border-bottom:1px solid var(--navy-3); color:#fff; font-size:12px; text-align:left; flex-shrink:0}
+.aiPickerBar:hover{background:var(--navy-3)}
+.aiPickerBar .aiDot{width:7px; height:7px; border-radius:50%; background:var(--teal); flex-shrink:0}
+.aiPickerBar b{font-weight:700}
+.aiPickerCaret{margin-left:auto; font-size:10.5px; color:#98A2B3; font-weight:600}
+.aiSettingsCaption{font-size:10px; color:var(--faint); padding:0 10px 8px; line-height:1.4}
+.modal select{width:100%; border:1px solid var(--line); border-radius:var(--r-ctl); padding:8px 11px; font-family:inherit; font-size:12.5px; margin-bottom:9px; background:#FBFCFD; appearance:auto}
+.modal select:focus{border-color:var(--teal); outline:none; background:#fff}
+.keyRow{position:relative}
+.keyRow input{padding-right:56px}
+.keyToggle{position:absolute; right:6px; top:8px; font-size:10.5px; font-weight:700; color:var(--teal); background:none; padding:4px 6px}
+.aiHint{font-size:11px; color:var(--faint); margin:-4px 0 9px; line-height:1.45}
+.aiWarn{font-size:11px; color:var(--amber); margin:-4px 0 9px; line-height:1.45; display:none}
+.aiWarn.show{display:block}
 
 /* ---- chat thread — kept minimal, no decorative spacing ---- */
-/* ---- pinned "latest answer" panel — always the same spot near the top, so eyes stay near the camera ---- */
-.latestAnswer{flex-shrink:0; padding:14px 16px 12px; border-bottom:1px solid var(--line); background:var(--paper)}
-.latestAnswer.la-document{background:var(--teal-soft)}
-.latestAnswer.la-blended{background:var(--amber-soft)}
-.latestAnswer.la-general{background:var(--violet-soft)}
-.latestAnswer.la-error{background:var(--live-soft)}
-.laLabel{display:flex; align-items:center; gap:6px; font-size:9.5px; font-weight:800; letter-spacing:.06em; color:var(--faint); margin-bottom:5px}
-.laDot{width:7px; height:7px; border-radius:50%; background:var(--line)}
-.laDot.document{background:var(--teal)}
-.laDot.blended{background:var(--amber)}
-.laDot.general{background:var(--violet)}
-.laDot.pending{background:var(--faint); animation:pulse 1s ease-in-out infinite}
-.laDot.error{background:var(--live)}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
-.laBody{font-size:15.5px; line-height:1.42; color:var(--ink); max-height:180px; overflow-y:auto; white-space:pre-wrap}
-.laFoot{display:flex; align-items:center; gap:4px; flex-wrap:wrap; margin-top:8px}
 .chatBody{flex:1; min-height:0; overflow-y:auto; padding:8px 10px; display:flex; flex-direction:column; gap:3px}
 .chatEmpty{margin:auto; max-width:340px; text-align:center; color:var(--faint); font-size:12.5px; line-height:1.6}
 .chatEmpty b{color:var(--muted)}
@@ -263,10 +263,16 @@ body.listening .wordmark .u{animation:blink 1.1s steps(1) infinite}
             <div class="uname" id="menuName"></div>
             <div class="uemail mono" id="menuEmail"></div>
           </div>
+          <button class="aiSettingsBtn" id="aiSettingsBtn2" type="button">AI Provider &amp; API Key</button>
           <button class="signoutbtn" id="signOutBtn" type="button">Sign out</button>
         </div>
       </div>
     </div>
+    <button class="aiPickerBar" id="aiPickerBtn" type="button" title="Choose which AI answers your questions — switch and test anytime">
+      <span class="aiDot" id="aiPickerDot"></span>
+      <span>AI: <b id="aiPickerLabel">Groq (free)</b></span>
+      <span class="aiPickerCaret">Change ▾</span>
+    </button>
     <div class="tzHead">
       <span class="eyebrow">TRANSCRIPT</span>
       <span class="timer mono" id="timer">00:00</span>
@@ -277,7 +283,7 @@ body.listening .wordmark .u{animation:blink 1.1s steps(1) infinite}
         <div class="nosupport" id="noSupport" style="display:none">Voice input needs Chrome or Edge on desktop. You can still type in the chat.</div>
       </div>
     </div>
-    <div class="buildtag" title="If this doesn't match what Cap expects, do a hard refresh (Ctrl+Shift+R) before assuming a code bug.">build v17a · index_v17a_pinned_latest_answer</div>
+    <div class="buildtag" title="If this doesn't match what Cap expects, do a hard refresh (Ctrl+Shift+R) before assuming a code bug.">build v18 · index_v18_dynamic_ai_provider</div>
   </aside>
 
   <!-- ============ RIGHT: CHAT — fills edge to edge, no wasted space ============ -->
@@ -285,15 +291,10 @@ body.listening .wordmark .u{animation:blink 1.1s steps(1) infinite}
     <div class="chatCardWrap" id="chatCardWrap">
       <div class="chatCard" id="chatCard">
         <button class="popoutbtn" id="popoutBtn" type="button" title="Pop out — drag and resize anywhere on your screen">⤢</button>
-        <div class="latestAnswer" id="latestAnswer">
-          <div class="laLabel"><span class="laDot" id="laDot"></span>LATEST ANSWER</div>
-          <div class="laBody" id="laBody">Ask a question, or wait for one to be heard in the meeting — the answer always lands right here, in the same spot.</div>
-          <div class="laFoot" id="laFoot"></div>
-        </div>
         <div class="chatBody" id="chatBody">
           <div class="chatEmpty" id="chatEmpty">
             This is a normal chat — <b>type a question, or give it instructions for how to answer during this meeting</b> ("answer as the ops lead managing both LOBs"). It remembers everything you say for the rest of the session.<br><br>
-            Real questions heard in the meeting land here automatically too — nothing to click. Full history stays below — the box above always shows just the latest answer.
+            Real questions heard in the meeting land here automatically too — nothing to click.
           </div>
         </div>
         <form class="chatbar" id="askForm">
@@ -329,6 +330,31 @@ body.listening .wordmark .u{animation:blink 1.1s steps(1) infinite}
     <div class="m-actions">
       <button class="mbtn ghost" id="pasteCancel" type="button">Cancel</button>
       <button class="mbtn primary" id="pasteAdd" type="button">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ AI PROVIDER / API KEY MODAL ============ -->
+<div class="overlay" id="aiSettingsOverlay">
+  <div class="modal" role="dialog" aria-modal="true">
+    <h3>AI Provider &amp; API Key</h3>
+    <p>Groq is free and needs no setup. Switch to your own OpenAI or Anthropic key any time — no code changes, no redeploying. Test whichever one actually works and keep it.</p>
+    <select id="aiProviderSelect">
+      <option value="groq">Groq — llama-3.3-70b (free tier, default)</option>
+      <option value="openai">OpenAI — ChatGPT</option>
+      <option value="anthropic">Anthropic — Claude</option>
+    </select>
+    <div class="keyRow">
+      <input type="password" id="aiApiKeyInput" placeholder="API key (leave blank to use Groq's default)" autocomplete="off">
+      <button class="keyToggle" id="aiKeyToggle" type="button">Show</button>
+    </div>
+    <input type="text" id="aiModelInput" placeholder="Model override (optional)" autocomplete="off">
+    <div class="aiHint" id="aiModelHint"></div>
+    <div class="aiWarn" id="aiKeyWarn">This provider needs your own API key above — without one, it'll fall back to Groq.</div>
+    <div class="m-actions">
+      <button class="mbtn ghost" id="aiSettingsReset" type="button">Reset to Groq</button>
+      <button class="mbtn ghost" id="aiSettingsCancel" type="button">Cancel</button>
+      <button class="mbtn primary" id="aiSettingsSave" type="button">Save</button>
     </div>
   </div>
 </div>
@@ -535,7 +561,8 @@ const state = {
   timerInt: null,
   recognition: null,
   nextId: 1,
-  pendingUploads: 0      // documents still being read — a message must wait for this to hit 0
+  pendingUploads: 0,     // documents still being read — a message must wait for this to hit 0
+  aiConfig: loadAiConfig()  // {provider, apiKey, model} — which AI answers questions, user-switchable, persisted locally
 };
 const CONTEXT_BUDGET = 60000; // generous headroom — several real documents together should virtually never need the fallback path
 const MAX_FILES = 5;
@@ -569,7 +596,10 @@ const els = {
   tScroll: $('tScroll'), tEmpty: $('tEmpty'), noSupport: $('noSupport'), timer: $('timer'),
   toasts: $('toasts'),
   chatCardWrap: $('chatCardWrap'), chatCard: $('chatCard'), chatPlaceholder: $('chatPlaceholder'), popoutBtn: $('popoutBtn'),
-  latestAnswer: $('latestAnswer'), laBody: $('laBody'), laFoot: $('laFoot'), laDot: $('laDot')
+  aiPickerBtn: $('aiPickerBtn'), aiPickerDot: $('aiPickerDot'), aiPickerLabel: $('aiPickerLabel'), aiSettingsBtn2: $('aiSettingsBtn2'),
+  aiSettingsOverlay: $('aiSettingsOverlay'), aiProviderSelect: $('aiProviderSelect'), aiApiKeyInput: $('aiApiKeyInput'), aiKeyToggle: $('aiKeyToggle'),
+  aiModelInput: $('aiModelInput'), aiModelHint: $('aiModelHint'), aiKeyWarn: $('aiKeyWarn'),
+  aiSettingsReset: $('aiSettingsReset'), aiSettingsCancel: $('aiSettingsCancel'), aiSettingsSave: $('aiSettingsSave')
 };
 
 function toast(msg, kind) {
@@ -759,6 +789,87 @@ els.pasteAdd.addEventListener('click', function () {
 });
 
 // ================================================================
+// AI provider settings — lets Cap switch between Groq (free, default),
+// OpenAI, or Anthropic and paste his own key, with zero code changes or
+// redeploys. Persisted in this browser only (localStorage), sent with
+// every question so the server knows which provider/key/model to use.
+// ================================================================
+const AI_CONFIG_KEY = 'smashit_ai_config';
+const PROVIDER_INFO = {
+  groq: { label: 'Groq (free)', fullLabel: 'Groq — llama-3.3-70b (free tier)', defaultModel: 'llama-3.3-70b-versatile', needsKey: false },
+  openai: { label: 'OpenAI', fullLabel: 'OpenAI — ChatGPT', defaultModel: 'gpt-4o-mini', needsKey: true },
+  anthropic: { label: 'Claude', fullLabel: 'Anthropic — Claude', defaultModel: 'claude-sonnet-5', needsKey: true }
+};
+function loadAiConfig() {
+  try {
+    const raw = localStorage.getItem(AI_CONFIG_KEY);
+    if (!raw) return { provider: 'groq', apiKey: '', model: '' };
+    const parsed = JSON.parse(raw);
+    return {
+      provider: PROVIDER_INFO[parsed.provider] ? parsed.provider : 'groq',
+      apiKey: typeof parsed.apiKey === 'string' ? parsed.apiKey : '',
+      model: typeof parsed.model === 'string' ? parsed.model : ''
+    };
+  } catch (e) { return { provider: 'groq', apiKey: '', model: '' }; }
+}
+function saveAiConfig(cfg) {
+  state.aiConfig = cfg;
+  try { localStorage.setItem(AI_CONFIG_KEY, JSON.stringify(cfg)); } catch (e) {}
+  updateAiPicker();
+}
+function updateAiPicker() {
+  const info = PROVIDER_INFO[state.aiConfig.provider] || PROVIDER_INFO.groq;
+  els.aiPickerLabel.textContent = info.label + (state.aiConfig.provider !== 'groq' && !state.aiConfig.apiKey ? ' (no key — using Groq)' : '');
+  els.aiPickerDot.style.background = state.aiConfig.provider === 'groq' ? 'var(--teal)' : (state.aiConfig.apiKey ? 'var(--teal)' : 'var(--amber)');
+}
+function refreshAiModalHint() {
+  const provider = els.aiProviderSelect.value;
+  const info = PROVIDER_INFO[provider];
+  els.aiModelInput.placeholder = 'Model override (optional) — default: ' + info.defaultModel;
+  els.aiModelHint.textContent = 'Default model: ' + info.defaultModel;
+  const needsKeyButMissing = info.needsKey && !els.aiApiKeyInput.value.trim();
+  els.aiKeyWarn.classList.toggle('show', needsKeyButMissing);
+}
+function openAiSettings() {
+  els.aiProviderSelect.value = state.aiConfig.provider;
+  els.aiApiKeyInput.value = state.aiConfig.apiKey;
+  els.aiApiKeyInput.type = 'password'; els.aiKeyToggle.textContent = 'Show';
+  els.aiModelInput.value = state.aiConfig.model;
+  refreshAiModalHint();
+  els.aiSettingsOverlay.classList.add('open');
+  document.getElementById('userMenu').classList.remove('open');
+}
+function closeAiSettings() { els.aiSettingsOverlay.classList.remove('open'); }
+
+els.aiPickerBtn.addEventListener('click', openAiSettings);
+els.aiSettingsBtn2.addEventListener('click', openAiSettings);
+els.aiSettingsCancel.addEventListener('click', closeAiSettings);
+els.aiSettingsOverlay.addEventListener('click', function (e) { if (e.target === els.aiSettingsOverlay) closeAiSettings(); });
+els.aiProviderSelect.addEventListener('change', refreshAiModalHint);
+els.aiApiKeyInput.addEventListener('input', refreshAiModalHint);
+els.aiKeyToggle.addEventListener('click', function () {
+  const showing = els.aiApiKeyInput.type === 'text';
+  els.aiApiKeyInput.type = showing ? 'password' : 'text';
+  els.aiKeyToggle.textContent = showing ? 'Show' : 'Hide';
+});
+els.aiSettingsReset.addEventListener('click', function () {
+  saveAiConfig({ provider: 'groq', apiKey: '', model: '' });
+  closeAiSettings();
+  toast('Reset to Groq (free, default).');
+});
+els.aiSettingsSave.addEventListener('click', function () {
+  const provider = els.aiProviderSelect.value;
+  const apiKey = els.aiApiKeyInput.value.trim();
+  const model = els.aiModelInput.value.trim();
+  saveAiConfig({ provider: provider, apiKey: apiKey, model: model });
+  closeAiSettings();
+  const info = PROVIDER_INFO[provider];
+  if (info.needsKey && !apiKey) toast('Saved — but ' + info.label + ' needs a key, so it will fall back to Groq until you add one.', 'warn');
+  else toast('Saved — now answering with ' + info.fullLabel + '.');
+});
+updateAiPicker();
+
+// ================================================================
 // Speech recognition
 // ================================================================
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -885,12 +996,10 @@ function renderPendingBubble() {
   el.innerHTML = '<span class="floader"></span>Thinking…';
   els.chatBody.appendChild(el);
   els.chatBody.scrollTop = els.chatBody.scrollHeight;
-  updateLatestAnswer('Thinking…', 'pending', []);
   return el;
 }
 function setPendingText(el, text) {
   el.innerHTML = '<span class="floader"></span>' + text;
-  updateLatestAnswer(text, 'pending', []);
 }
 
 // Waits for any document still being read to actually finish, so a message
@@ -908,19 +1017,6 @@ function waitForUploads(maxMs) {
 }
 
 const BASIS_LABEL = { document: '📄 From your documents', blended: '📄 Docs + reasoning', general: '💡 General reasoning' };
-
-// Keeps the pinned panel at the top of the card in sync with whatever the
-// scrolling chat log is doing — same content, fixed position, so the user's
-// eyes never have to travel down to find the newest answer.
-function updateLatestAnswer(text, kind, sources) {
-  els.laBody.textContent = text;
-  els.latestAnswer.className = 'latestAnswer' + (kind ? ' la-' + kind : '');
-  els.laDot.className = 'laDot' + (kind ? ' ' + kind : '');
-  els.laFoot.innerHTML = '';
-  (sources || []).forEach(function (s) {
-    const chip = document.createElement('span'); chip.className = 'srcchip'; chip.textContent = '📄 ' + s; els.laFoot.appendChild(chip);
-  });
-}
 
 function sendMessage(text, opts) {
   text = SmashCore.normalize(text);
@@ -943,7 +1039,7 @@ function sendMessage(text, opts) {
     return fetch('/api/ai', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: state.history })
+      body: JSON.stringify({ messages: state.history, provider: state.aiConfig.provider, apiKey: state.aiConfig.apiKey, model: state.aiConfig.model })
     });
   })
   .then(function (resp) {
@@ -997,7 +1093,6 @@ function renderAiBubble(content) {
   el.appendChild(foot);
   els.chatBody.appendChild(el);
   els.chatBody.scrollTop = els.chatBody.scrollHeight;
-  updateLatestAnswer(a.answer, a.basis, a.sources);
 }
 
 function renderErrorBubble(message, originalText, opts) {
@@ -1015,7 +1110,6 @@ function renderErrorBubble(message, originalText, opts) {
   foot.appendChild(retry); el.appendChild(foot);
   els.chatBody.appendChild(el);
   els.chatBody.scrollTop = els.chatBody.scrollHeight;
-  updateLatestAnswer(message + ' (tap Retry below in the history)', 'error', []);
 }
 
 // ================================================================
